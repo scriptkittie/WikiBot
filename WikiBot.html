@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WikiBot</title>
+<meta name="description" content="Draw a random, interesting Wikipedia article.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one centered "card catalog" column. Each article is an index card
+   pulled from a drawer: red header rule, blue ruled lines, a catalog number. */
+:root {
+  --bg: #e3e8ed;
+  --card: #fcfdfe;
+  --ink: #16212b;
+  --muted: #5a6a77;
+  --rule: #d3dfea;
+  --red: #c23d33;
+  --accent: #1d5c88;
+  --accent-ink: #ffffff;
+  --line: #c4cfda;
+  --img-bg: #eef2f5;
+  --page-ink: #16212b;
+  --page-muted: #5a6a77;
+  --shadow: 0 1px 2px rgba(22,33,43,.08), 0 10px 30px -12px rgba(22,33,43,.28);
+
+  --font-display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --font-body: "Public Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  --text-line: 28px;
+  color-scheme: light;
+}
+/* Themes. No data-theme = Auto (follows the computer's light/dark setting). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #0e141a; --card: #18212a; --ink: #e5ecf2; --muted: #92a3b2;
+    --page-ink: #e5ecf2; --page-muted: #92a3b2;
+    --rule: #22303c; --red: #e0665c; --accent: #6eb1e2; --accent-ink: #0a1620;
+    --line: #2b3946; --img-bg: #121a21;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 14px 34px -14px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="midnight"] {
+    --bg: #0e141a; --card: #18212a; --ink: #e5ecf2; --muted: #92a3b2;
+    --page-ink: #e5ecf2; --page-muted: #92a3b2;
+    --rule: #22303c; --red: #e0665c; --accent: #6eb1e2; --accent-ink: #0a1620;
+    --line: #2b3946; --img-bg: #121a21;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 14px 34px -14px rgba(0,0,0,.7);
+    color-scheme: dark;
+}
+/* Library: dark walnut room, paper cards, brass buttons */
+:root[data-theme="library"] {
+    --bg: #1d1510; --card: #f2e9d8; --ink: #2a1d14; --muted: #76604c;
+    --page-ink: #f2e9d8; --page-muted: #b59e83;
+    --rule: #dccdb2; --red: #a3342b; --accent: #c99a4a; --accent-ink: #1d1510;
+    --line: #cdbc9f; --img-bg: #e7dcc5;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 18px 40px -16px rgba(0,0,0,.85);
+    color-scheme: dark;
+}
+/* Botanical: pressed-leaf greens */
+:root[data-theme="botanical"] {
+    --bg: #dde5d9; --card: #fbfcf7; --ink: #1a2a1e; --muted: #5a6c5d;
+    --page-ink: #1a2a1e; --page-muted: #5a6c5d;
+    --rule: #d6e2d1; --red: #b0532f; --accent: #2e6a44; --accent-ink: #ffffff;
+    --line: #c3d1bf; --img-bg: #eef3ea;
+    --shadow: 0 1px 2px rgba(26,42,30,.08), 0 10px 30px -12px rgba(26,42,30,.3);
+    color-scheme: light;
+}
+/* Blueprint: white lines on drafting blue */
+:root[data-theme="blueprint"] {
+    --bg: #0f3359; --card: #154573; --ink: #eaf2fb; --muted: #a8c3de;
+    --page-ink: #eaf2fb; --page-muted: #a8c3de;
+    --rule: #2a5d8f; --red: #ffd166; --accent: #ffd166; --accent-ink: #0f3359;
+    --line: #3a6d9f; --img-bg: #113c66;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 14px 34px -14px rgba(0,0,0,.6);
+    color-scheme: dark;
+}
+/* Terminal: a nod to the original command-line WikiBot */
+:root[data-theme="terminal"] {
+    --bg: #040904; --card: #0a130b; --ink: #b8f5b2; --muted: #62a65c;
+    --page-ink: #b8f5b2; --page-muted: #62a65c;
+    --rule: #12261a; --red: #3ddc68; --accent: #3ddc68; --accent-ink: #031007;
+    --line: #1e3c24; --img-bg: #071008;
+    --shadow: 0 0 0 1px rgba(61,220,104,.08), 0 0 40px -10px rgba(61,220,104,.25);
+    --font-display: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --font-body: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    color-scheme: dark;
+}
+:root[data-theme="terminal"] .card-title { font-size: clamp(26px, 5.5vw, 34px); letter-spacing: -.02em; }
+:root[data-theme="terminal"] .card-title::before { content: "> "; color: var(--accent); }
+:root[data-theme="terminal"] .card-text { font-size: 15px; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--page-ink);
+  font: 400 16px/1.5 var(--font-body);
+  transition: background-color .3s ease, color .3s ease;
+  min-height: 100vh;
+  padding-block: max(20px, env(safe-area-inset-top, 0px)) max(28px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-font-smoothing: antialiased;
+}
+button, select { font: inherit; color: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+.wrap { max-width: 660px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+/* ---- top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { margin: 0; font: 400 34px/1 var(--font-display); letter-spacing: -.01em; }
+.brand h1 i { color: var(--red); }
+.brand span { font: 400 12px/1 var(--font-mono); color: var(--page-muted); letter-spacing: .04em; }
+.tools { display: flex; gap: 8px; align-items: center; margin-left: auto; position: relative; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  font-size: 14px; cursor: pointer;
+}
+.chip:hover { border-color: var(--muted); }
+.chip .count {
+  font: 500 12px/1 var(--font-mono); min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 999px; background: var(--red); color: var(--card);
+  display: inline-grid; place-items: center;
+}
+.chip .count:empty, .chip .count[data-zero] { display: none; }
+select.chip { appearance: none; padding-right: 30px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 15px, calc(100% - 11px) 15px; background-size: 5px 5px; background-repeat: no-repeat; }
+
+/* ---- the card */
+.stack { position: relative; }
+.stack::before, .stack::after {
+  content: ""; position: absolute; inset: 0; border-radius: 6px;
+  background: var(--card); border: 1px solid var(--line); z-index: 0;
+}
+.stack::before { transform: rotate(-1.6deg) translate(-4px, 8px); opacity: .55; }
+.stack::after  { transform: rotate(1.1deg) translate(5px, 5px); opacity: .8; }
+
+.card {
+  position: relative; z-index: 1;
+  background: var(--card); color: var(--ink); border-radius: 6px; border: 1px solid var(--line);
+  box-shadow: var(--shadow); overflow: hidden;
+  transition: transform .32s cubic-bezier(.2,.7,.2,1), opacity .32s ease;
+}
+.card.leaving { transform: translateY(-14px) rotate(-1.2deg); opacity: 0; }
+.card.entering { transform: translateY(18px); opacity: 0; transition: none; }
+
+.card-head {
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 14px 24px 10px; border-bottom: 2px solid var(--red);
+  font: 400 12px/1.3 var(--font-mono); color: var(--muted); letter-spacing: .05em; text-transform: uppercase;
+}
+.card-head b { font-weight: 500; color: var(--ink); }
+
+.card-img { margin: 0; background: var(--img-bg); border-bottom: 1px solid var(--line); }
+.card-img img { display: block; width: 100%; height: auto; max-height: 360px; object-fit: contain; }
+
+.card-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 6px; }
+.card-title { margin: 0; font: 400 clamp(34px, 7vw, 46px)/1.05 var(--font-display); letter-spacing: -.01em; text-wrap: balance; overflow-wrap: anywhere; }
+.card-title a { text-decoration: none; }
+.card-title a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 6px; }
+.card-desc { margin: 0; font: italic 400 20px/1.3 var(--font-display); color: var(--muted); }
+.card-desc::first-letter { text-transform: uppercase; }
+
+.card-text {
+  margin-top: 10px;
+  font-size: 16.5px; line-height: var(--text-line);
+  background-image: linear-gradient(to bottom, transparent calc(var(--text-line) - 1px), var(--rule) calc(var(--text-line) - 1px));
+  background-size: 100% var(--text-line);
+  background-position: 0 -3px;
+  max-width: 65ch;
+  overflow-wrap: break-word;
+}
+.card-text p { margin: 0 0 var(--text-line); }
+.card-text p:last-child { margin-bottom: 0; }
+.more {
+  border: 0; background: none; padding: 0; cursor: pointer;
+  color: var(--accent); font-weight: 600; font-size: 15px; height: var(--text-line);
+}
+.more:hover { text-decoration: underline; }
+
+/* loading + error states inside the card */
+.state { padding: 54px 24px 60px; display: grid; justify-items: center; gap: 14px; text-align: center; }
+.state p { margin: 0; color: var(--muted); max-width: 36ch; }
+.state h2 { margin: 0; font: 400 30px/1.1 var(--font-display); }
+.drawer-anim { width: 64px; height: 44px; position: relative; }
+.drawer-anim i {
+  position: absolute; left: 8px; right: 8px; height: 30px; border-radius: 3px;
+  background: var(--card); border: 1px solid var(--line); border-top: 2px solid var(--red);
+  animation: flip 1.2s ease-in-out infinite;
+}
+.drawer-anim i:nth-child(2) { animation-delay: .2s; left: 4px; right: 12px; }
+.drawer-anim i:nth-child(3) { animation-delay: .4s; left: 12px; right: 4px; }
+@keyframes flip { 0%,100% { transform: translateY(12px); } 40% { transform: translateY(0); } }
+
+/* ---- actions */
+.actions { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; }
+.btn {
+  height: 50px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); font-size: 15.5px; font-weight: 500;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: transform .12s ease, border-color .12s ease;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: default; transform: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn.saved { color: var(--red); border-color: var(--red); }
+.btn.saved svg { fill: currentColor; }
+
+.below { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 14px; color: var(--page-muted); }
+.toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+.toggle input { appearance: none; width: 38px; height: 22px; border-radius: 999px; background: var(--line); position: relative; cursor: pointer; margin: 0; transition: background .2s; }
+.toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--card); transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.toggle input:checked { background: var(--accent); }
+.toggle input:checked::after { transform: translateX(16px); }
+.keys { font: 400 12px/1 var(--font-mono); letter-spacing: .03em; }
+.keys kbd { font: inherit; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; background: var(--card); color: var(--ink); }
+
+footer { font-size: 12.5px; color: var(--page-muted); text-align: center; }
+footer a { color: var(--page-muted); }
+
+/* ---- theme picker */
+.theme-wrap { position: static; }
+.theme-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 30;
+  width: 300px; max-width: calc(100vw - 32px);
+  background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 10px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+}
+.theme-menu p { grid-column: 1 / -1; margin: 2px 4px 4px; font: 400 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.theme-opt {
+  display: grid; gap: 7px; padding: 7px; border-radius: 8px; border: 1px solid transparent;
+  background: none; cursor: pointer; text-align: left; font-size: 13.5px; color: var(--ink);
+}
+.theme-opt:hover { border-color: var(--line); }
+.theme-opt[aria-checked="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.sw { height: 46px; border-radius: 5px; position: relative; overflow: hidden; border: 1px solid rgba(127,127,127,.25); }
+.sw i { position: absolute; left: 18%; right: 18%; top: 22%; bottom: 0; border-radius: 3px 3px 0 0; }
+.chip .dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); background: linear-gradient(135deg, var(--card) 50%, var(--accent) 50%); }
+
+/* ---- saved drawer */
+dialog {
+  border: 0; padding: 0; margin: 0 0 0 auto; height: 100%; max-height: 100%;
+  width: min(400px, 100%); background: var(--card); color: var(--ink);
+  box-shadow: -10px 0 40px rgba(0,0,0,.25);
+}
+dialog::backdrop { background: rgba(10,16,22,.45); }
+dialog[open] { animation: slidein .25s cubic-bezier(.2,.7,.2,1); }
+@keyframes slidein { from { transform: translateX(40px); opacity: 0; } }
+.drawer { display: flex; flex-direction: column; height: 100%; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: max(18px, env(safe-area-inset-top, 0px)) 20px 14px; border-bottom: 2px solid var(--red); }
+.drawer-head h2 { margin: 0; font: 400 30px/1 var(--font-display); }
+.icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: none; cursor: pointer; display: grid; place-items: center; }
+.icon-btn svg { width: 16px; height: 16px; }
+.saved-list { list-style: none; margin: 0; padding: 6px 0; overflow-y: auto; flex: 1; }
+.saved-list li { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--rule); }
+.saved-list a { text-decoration: none; min-width: 0; }
+.saved-list a strong { display: block; font: 400 22px/1.15 var(--font-display); }
+.saved-list a span { display: block; font-size: 13.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-list a:hover strong { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.remove { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 6px; }
+.remove:hover { color: var(--red); }
+.empty { padding: 40px 24px; color: var(--muted); text-align: center; }
+
+.toast {
+  position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px);
+  background: var(--ink); color: var(--card); padding: 10px 16px; border-radius: 999px; font-size: 14px;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 560px) {
+  .chip .theme-label { display: none; }
+  .actions { grid-template-columns: repeat(3, 1fr); }
+  .actions .next { grid-column: 1 / -1; order: -1; }
+  .actions .btn { padding: 0 10px; }
+  .keys { display: none; }
+  .card-head, .card-body { padding-left: 18px; padding-right: 18px; }
+  .brand span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <h1>Wiki<i>Bot</i></h1>
+      <span>a random card from the encyclopedia</span>
+    </div>
+    <div class="tools">
+      <select class="chip" id="lang" aria-label="Wikipedia language">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="de">Deutsch</option>
+        <option value="it">Italiano</option>
+        <option value="pt">Português</option>
+        <option value="nl">Nederlands</option>
+        <option value="sv">Svenska</option>
+        <option value="pl">Polski</option>
+        <option value="ja">日本語</option>
+      </select>
+      <div class="theme-wrap">
+        <button class="chip" id="themeBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="themeMenu" title="Theme (T)">
+          <span class="dot" aria-hidden="true"></span><span class="theme-label">Theme</span>
+        </button>
+        <div class="theme-menu" id="themeMenu" role="radiogroup" aria-label="Theme" hidden></div>
+      </div>
+      <button class="chip" id="openSaved" type="button">
+        Saved <span class="count" id="savedCount"></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="stack">
+    <article class="card" id="card" aria-live="polite">
+      <div class="state" id="loading">
+        <div class="drawer-anim" aria-hidden="true"><i></i><i></i><i></i></div>
+        <p>Pulling a card from the drawer…</p>
+      </div>
+    </article>
+  </main>
+
+  <nav class="actions" aria-label="Article actions">
+    <button class="btn" id="back" type="button" aria-label="Previous article" title="Previous article (←)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      <span>Back</span>
+    </button>
+    <button class="btn primary next" id="next" type="button" title="Next article (→)">
+      Draw another card
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <button class="btn" id="save" type="button" title="Save (S)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+      <span>Save</span>
+    </button>
+    <a class="btn" id="read" href="https://en.wikipedia.org" target="_blank" rel="noopener" title="Read on Wikipedia (O)">
+      Read it
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+    </a>
+  </nav>
+
+  <div class="below">
+    <label class="toggle" for="pics">
+      <input type="checkbox" id="pics" checked>
+      Only articles with pictures
+    </label>
+    <span class="keys"><kbd>→</kbd> next &nbsp; <kbd>←</kbd> back &nbsp; <kbd>S</kbd> save &nbsp; <kbd>O</kbd> open &nbsp; <kbd>T</kbd> theme</span>
+  </div>
+
+  <footer>
+    Articles and images come from <a href="https://www.wikipedia.org" target="_blank" rel="noopener">Wikipedia</a>
+    and its contributors, under <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA</a>.
+  </footer>
+</div>
+
+<dialog id="savedDialog" aria-labelledby="savedTitle">
+  <div class="drawer">
+    <div class="drawer-head">
+      <h2 id="savedTitle">Saved cards</h2>
+      <button class="icon-btn" id="closeSaved" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <ul class="saved-list" id="savedList"></ul>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ------------------------------------------------------------ settings --
+  const MIN_SUMMARY = 250;     // skip stubs shorter than this
+  const MAX_BATCHES = 6;       // batches of 10 to try before settling
+  const PREVIEW_CHARS = 560;   // show this much before "Keep reading"
+  const LANG_NAMES = { en:"English", es:"Spanish", fr:"French", de:"German", it:"Italian",
+                       pt:"Portuguese", nl:"Dutch", sv:"Swedish", pl:"Polish", ja:"Japanese" };
+
+  // ----------------------------------------------------- little helpers --
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem("wikibot." + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem("wikibot." + key, JSON.stringify(value)); } catch {} },
+  };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // --------------------------------------------------------- Wikipedia --
+  function apiUrl(lang) {
+    return `https://${lang}.wikipedia.org/w/api.php?` + new URLSearchParams({
+      action: "query", format: "json", formatversion: "2", origin: "*",
+      generator: "random", grnnamespace: "0", grnlimit: "10",
+      prop: "extracts|pageimages|info|pageprops|description|coordinates",
+      exintro: "1", explaintext: "1", exlimit: "max",
+      pithumbsize: "900", inprop: "url", ppprop: "disambiguation", colimit: "max",
+    });
+  }
+
+  function isInteresting(p, lang, needPic) {
+    if (p.pageprops && "disambiguation" in p.pageprops) return false;
+    if (lang === "en" && /^(List|Lists|Index|Outline) of /.test(p.title)) return false;
+    if ((p.extract || "").length < MIN_SUMMARY) return false;
+    if (needPic && !p.thumbnail) return false;
+    return true;
+  }
+
+  function cleanExtract(text) {
+    return (text || "")
+      .replace(/\(\s*[;,]?\s*\)/g, "")       // empty brackets left behind by removed pronunciations
+      .replace(/\(\s*[;,]\s*/g, "(")
+      .replace(/ +([,.;:])/g, "$1")
+      .replace(/ {2,}/g, " ")
+      .trim();
+  }
+
+  function toArticle(p, lang) {
+    return {
+      id: p.pageid,
+      lang,
+      title: p.title,
+      description: p.description || "",
+      extract: cleanExtract(p.extract),
+      url: p.fullurl || `https://${lang}.wikipedia.org/?curid=${p.pageid}`,
+      image: p.thumbnail ? p.thumbnail.source : null,
+      coords: p.coordinates && p.coordinates[0] ? { lat: p.coordinates[0].lat, lon: p.coordinates[0].lon } : null,
+    };
+  }
+
+  async function findArticle(lang, needPic) {
+    let fallback = null;
+    for (let i = 0; i < MAX_BATCHES; i++) {
+      const res = await fetch(apiUrl(lang));
+      if (!res.ok) throw new Error("Wikipedia answered " + res.status);
+      const data = await res.json();
+      const pages = (data.query && data.query.pages) || [];
+      for (const p of pages) {
+        if (isInteresting(p, lang, needPic)) return toArticle(p, lang);
+        if (!fallback && p.extract && !(p.pageprops && "disambiguation" in p.pageprops)) fallback = p;
+      }
+    }
+    if (!fallback) throw new Error("No articles came back");
+    return toArticle(fallback, lang);
+  }
+
+  function preloadImage(src) {
+    return new Promise((resolve) => {
+      if (!src) return resolve();
+      const img = new Image();
+      const done = () => resolve();
+      img.onload = done; img.onerror = done;
+      setTimeout(done, 6000);
+      img.src = src;
+    });
+  }
+
+  // ------------------------------------------------------------- state --
+  const state = {
+    lang: store.get("lang", "en"),
+    needPic: store.get("needPic", true),
+    saved: store.get("saved", []),
+    history: [],
+    index: -1,
+    prefetch: null,
+    busy: false,
+    error: false,
+  };
+  if (!LANG_NAMES[state.lang]) state.lang = "en";
+
+  function startPrefetch() {
+    const { lang, needPic } = state;
+    const p = findArticle(lang, needPic).then(async (a) => { await preloadImage(a.image); return a; });
+    p.catch(() => {});             // handled when used
+    state.prefetch = { promise: p, lang, needPic };
+  }
+  function takePrefetch() {
+    const pf = state.prefetch;
+    state.prefetch = null;
+    if (pf && pf.lang === state.lang && pf.needPic === state.needPic) return pf.promise;
+    return findArticle(state.lang, state.needPic).then(async (a) => { await preloadImage(a.image); return a; });
+  }
+
+  const current = () => state.history[state.index] || null;
+  const isSaved = (a) => !!a && state.saved.some((s) => s.url === a.url);
+
+  // ----------------------------------------------------------- render --
+  const card = $("card");
+
+  function formatCoords(c) {
+    const lat = `${Math.abs(c.lat).toFixed(2)}° ${c.lat >= 0 ? "N" : "S"}`;
+    const lon = `${Math.abs(c.lon).toFixed(2)}° ${c.lon >= 0 ? "E" : "W"}`;
+    return `${lat}, ${lon}`;
+  }
+
+  function cardHTML(a) {
+    const paras = a.extract.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    let shown = [], rest = [], total = 0;
+    for (const p of paras) {
+      if (total < PREVIEW_CHARS || shown.length === 0) { shown.push(p); total += p.length; }
+      else rest.push(p);
+    }
+    const right = a.coords ? formatCoords(a.coords) : `${LANG_NAMES[a.lang]} Wikipedia`;
+    return `
+      <div class="card-head"><span>Card No. <b>${a.id.toLocaleString()}</b></span><span>${esc(right)}</span></div>
+      ${a.image ? `<figure class="card-img"><img src="${esc(a.image)}" alt="${esc(a.title)}"></figure>` : ""}
+      <div class="card-body">
+        <h2 class="card-title"><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a></h2>
+        ${a.description ? `<p class="card-desc">${esc(a.description)}</p>` : ""}
+        <div class="card-text">
+          ${shown.map((p) => `<p>${esc(p)}</p>`).join("")}
+          ${rest.length ? `<div class="rest" hidden>${rest.map((p) => `<p>${esc(p)}</p>`).join("")}</div>
+                           <button class="more" type="button">Keep reading ↓</button>` : ""}
+        </div>
+      </div>`;
+  }
+
+  function loadingHTML() {
+    return `<div class="state"><div class="drawer-anim" aria-hidden="true"><i></i><i></i><i></i></div>
+            <p>Pulling a card from the drawer…</p></div>`;
+  }
+
+  function errorHTML() {
+    return `<div class="state">
+      <h2>Couldn't reach Wikipedia</h2>
+      <p>Check that you're connected to the internet, then try again.</p>
+      <button class="btn primary" type="button" id="retry">Try again</button></div>`;
+  }
+
+  async function swapCard(html) {
+    if (!reducedMotion && card.dataset.filled) {
+      card.classList.add("leaving");
+      await wait(220);
+    }
+    card.innerHTML = html;
+    card.dataset.filled = "1";
+    if (!reducedMotion) {
+      card.classList.remove("leaving");
+      card.classList.add("entering");
+      card.getBoundingClientRect();         // apply the start position first
+      card.classList.remove("entering");
+    }
+    const more = card.querySelector(".more");
+    if (more) more.addEventListener("click", () => {
+      card.querySelector(".rest").hidden = false;
+      more.remove();
+    });
+    const retry = card.querySelector("#retry");
+    if (retry) retry.addEventListener("click", () => next());
+  }
+
+  function updateControls() {
+    const a = current();
+    $("back").disabled = state.busy || (state.index <= 0 && !(state.error && current()));
+    $("next").disabled = state.busy;
+    $("save").disabled = state.busy || state.error || !a;
+    const saved = isSaved(a);
+    $("save").classList.toggle("saved", saved);
+    $("save").querySelector("span").textContent = saved ? "Saved" : "Save";
+    $("save").setAttribute("aria-pressed", saved ? "true" : "false");
+    const read = $("read");
+    if (a && !state.busy && !state.error) { read.href = a.url; read.removeAttribute("aria-disabled"); read.style.pointerEvents = ""; read.style.opacity = ""; }
+    else { read.setAttribute("aria-disabled", "true"); read.style.pointerEvents = "none"; read.style.opacity = ".45"; }
+    const n = state.saved.length;
+    const count = $("savedCount");
+    count.textContent = n ? String(n) : "";
+    if (n) count.removeAttribute("data-zero"); else count.setAttribute("data-zero", "");
+    document.title = a && !state.busy ? `${a.title} · WikiBot` : "WikiBot";
+  }
+
+  async function show(a) {
+    state.error = false;
+    await swapCard(cardHTML(a));
+    updateControls();
+  }
+
+  // ---------------------------------------------------------- actions --
+  async function next() {
+    if (state.busy) return;
+    if (state.index < state.history.length - 1) {   // moving forward through history
+      state.index++;
+      return show(current());
+    }
+    state.busy = true;
+    updateControls();
+    const slow = setTimeout(() => swapCard(loadingHTML()), 180);
+    try {
+      const a = await takePrefetch();
+      clearTimeout(slow);
+      state.history.push(a);
+      if (state.history.length > 60) state.history.shift();
+      state.index = state.history.length - 1;
+      state.busy = false;
+      await show(a);
+      startPrefetch();
+    } catch (err) {
+      clearTimeout(slow);
+      state.busy = false;
+      console.warn("WikiBot:", err);
+      state.error = true;
+      await swapCard(errorHTML());
+      updateControls();
+    }
+  }
+
+  function back() {
+    if (state.busy) return;
+    if (state.error && current()) return show(current());   // return to the last card you saw
+    if (state.index <= 0) return;
+    state.index--;
+    show(current());
+  }
+
+  function toggleSave() {
+    const a = current();
+    if (!a || state.busy) return;
+    if (isSaved(a)) {
+      state.saved = state.saved.filter((s) => s.url !== a.url);
+      toast("Removed from saved");
+    } else {
+      state.saved.unshift({ title: a.title, description: a.description, url: a.url, lang: a.lang });
+      toast("Saved");
+    }
+    store.set("saved", state.saved);
+    updateControls();
+    renderSaved();
+  }
+
+  function renderSaved() {
+    const list = $("savedList");
+    if (!state.saved.length) {
+      list.innerHTML = `<li class="empty" style="display:block;border:0">Nothing saved yet. Press <b>Save</b> on a card you like and it will wait for you here.</li>`;
+      return;
+    }
+    list.innerHTML = state.saved.map((s, i) => `
+      <li>
+        <a href="${esc(s.url)}" target="_blank" rel="noopener">
+          <strong>${esc(s.title)}</strong>
+          <span>${esc(s.description || LANG_NAMES[s.lang] + " Wikipedia")}</span>
+        </a>
+        <button class="remove" type="button" data-i="${i}" aria-label="Remove ${esc(s.title)}">Remove</button>
+      </li>`).join("");
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 1600);
+  }
+
+  function settingsChanged() {
+    store.set("lang", state.lang);
+    store.set("needPic", state.needPic);
+    state.prefetch = null;
+    state.history.length = state.index + 1;   // draw a fresh card, not an old one
+    next();
+  }
+
+  // ----------------------------------------------------------- themes --
+  const THEMES = [
+    { id: "auto",      name: "Auto",      bg: "linear-gradient(135deg,#e3e8ed 50%,#0e141a 50%)", card: "linear-gradient(135deg,#fcfdfe 50%,#18212a 50%)", rule: "#c23d33", ink: "#5a6a77" },
+    { id: "catalog",   name: "Catalog",   bg: "#e3e8ed", card: "#fcfdfe", rule: "#c23d33", ink: "#16212b" },
+    { id: "midnight",  name: "Midnight",  bg: "#0e141a", card: "#18212a", rule: "#e0665c", ink: "#e5ecf2" },
+    { id: "library",   name: "Library",   bg: "#1d1510", card: "#f2e9d8", rule: "#a3342b", ink: "#2a1d14" },
+    { id: "botanical", name: "Botanical", bg: "#dde5d9", card: "#fbfcf7", rule: "#b0532f", ink: "#2e6a44" },
+    { id: "blueprint", name: "Blueprint", bg: "#0f3359", card: "#154573", rule: "#ffd166", ink: "#eaf2fb" },
+    { id: "terminal",  name: "Terminal",  bg: "#040904", card: "#0a130b", rule: "#3ddc68", ink: "#3ddc68" },
+  ];
+  const themeMenu = $("themeMenu"), themeBtn = $("themeBtn");
+  let theme = store.get("theme", "auto");
+  if (!THEMES.some((t) => t.id === theme)) theme = "auto";
+
+  function applyTheme(id) {
+    theme = id;
+    if (id === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", id);
+    store.set("theme", id);
+    themeMenu.querySelectorAll(".theme-opt").forEach((b) => b.setAttribute("aria-checked", b.dataset.id === id ? "true" : "false"));
+  }
+  themeMenu.innerHTML = `<p>Theme</p>` + THEMES.map((t) => `
+    <button class="theme-opt" type="button" role="radio" data-id="${t.id}" aria-checked="false">
+      <span class="sw" style="background:${t.bg}" aria-hidden="true">
+        <i style="background:${t.card}"></i>
+      </span>
+      ${t.name}
+    </button>`).join("");
+  // draw each swatch's red rule and text line
+  themeMenu.querySelectorAll(".theme-opt").forEach((b, i) => {
+    const t = THEMES[i], card = b.querySelector(".sw i");
+    card.innerHTML = "";
+    const ruleEl = document.createElement("span"), lineEl = document.createElement("span");
+    Object.assign(ruleEl.style, { position: "absolute", left: 0, right: 0, top: "8px", height: "2px", background: t.rule });
+    Object.assign(lineEl.style, { position: "absolute", left: "14%", width: "46%", top: "16px", height: "4px", borderRadius: "2px", background: t.ink, opacity: ".8" });
+    card.append(ruleEl, lineEl);
+  });
+  function setMenu(open) {
+    themeMenu.hidden = !open;
+    themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) (themeMenu.querySelector('[aria-checked="true"]') || themeMenu.querySelector(".theme-opt")).focus();
+  }
+  themeBtn.addEventListener("click", (e) => { e.stopPropagation(); setMenu(themeMenu.hidden); });
+  themeMenu.addEventListener("click", (e) => {
+    const b = e.target.closest(".theme-opt");
+    if (b) { applyTheme(b.dataset.id); }
+  });
+  document.addEventListener("click", (e) => { if (!themeMenu.hidden && !e.target.closest(".theme-wrap")) setMenu(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !themeMenu.hidden) { setMenu(false); themeBtn.focus(); } });
+  function cycleTheme() {
+    const i = THEMES.findIndex((t) => t.id === theme);
+    const t = THEMES[(i + 1) % THEMES.length];
+    applyTheme(t.id);
+    toast(`Theme: ${t.name}`);
+  }
+  applyTheme(theme);
+
+  // ----------------------------------------------------------- wiring --
+  $("next").addEventListener("click", next);
+  $("back").addEventListener("click", back);
+  $("save").addEventListener("click", toggleSave);
+
+  const langSel = $("lang");
+  langSel.value = state.lang;
+  langSel.addEventListener("change", () => { state.lang = langSel.value; settingsChanged(); });
+
+  const pics = $("pics");
+  pics.checked = state.needPic;
+  pics.addEventListener("change", () => { state.needPic = pics.checked; store.set("needPic", state.needPic); state.prefetch = null; });
+
+  const dlg = $("savedDialog");
+  $("openSaved").addEventListener("click", () => { renderSaved(); dlg.showModal(); });
+  $("closeSaved").addEventListener("click", () => dlg.close());
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+  $("savedList").addEventListener("click", (e) => {
+    const btn = e.target.closest(".remove");
+    if (!btn) return;
+    state.saved.splice(Number(btn.dataset.i), 1);
+    store.set("saved", state.saved);
+    renderSaved();
+    updateControls();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (dlg.open || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest("select, input, textarea")) return;
+    const k = e.key.toLowerCase();
+    if (k === "arrowright" || k === "n") { e.preventDefault(); next(); }
+    else if (k === "arrowleft" || k === "b") { e.preventDefault(); back(); }
+    else if (k === "s") { e.preventDefault(); toggleSave(); }
+    else if (k === "t") { e.preventDefault(); cycleTheme(); }
+    else if (k === "o") { const a = current(); if (a && !state.busy && !state.error) window.open(a.url, "_blank", "noopener"); }
+  });
+
+  updateControls();
+  next();
+})();
+</script>
+</body>
+</html>
